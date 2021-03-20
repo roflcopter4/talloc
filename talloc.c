@@ -30,28 +30,29 @@
   inspired by http://swapped.cc/halloc/
 */
 
-#include "talloc_config.h"
 #include "talloc.h"
 
+#include "talloc_config.h"
+
 #ifdef HAVE_SYS_AUXV_H
-#include <sys/auxv.h>
+# include <sys/auxv.h>
 #endif
 
 #if (TALLOC_VERSION_MAJOR != TALLOC_BUILD_VERSION_MAJOR)
-#error "TALLOC_VERSION_MAJOR != TALLOC_BUILD_VERSION_MAJOR"
+# error "TALLOC_VERSION_MAJOR != TALLOC_BUILD_VERSION_MAJOR"
 #endif
 
 #if (TALLOC_VERSION_MINOR != TALLOC_BUILD_VERSION_MINOR)
-#error "TALLOC_VERSION_MINOR != TALLOC_BUILD_VERSION_MINOR"
+# error "TALLOC_VERSION_MINOR != TALLOC_BUILD_VERSION_MINOR"
 #endif
 
 /* Special macros that are no-ops except when run under Valgrind on
  * x86.  They've moved a little bit from valgrind 1.0.4 to 1.9.4 */
 #ifdef HAVE_VALGRIND_MEMCHECK_H
         /* memcheck.h includes valgrind.h */
-#include <valgrind/memcheck.h>
+# include <valgrind/memcheck.h>
 #elif defined(HAVE_VALGRIND_H)
-#include <valgrind.h>
+# include <valgrind.h>
 #endif
 
 #define MAX_TALLOC_SIZE 0x10000000
@@ -81,34 +82,34 @@ static unsigned int talloc_magic = TALLOC_MAGIC_NON_RANDOM;
 /* by default we abort when given a bad pointer (such as when talloc_free() is called
    on a pointer that came from malloc() */
 #ifndef TALLOC_ABORT
-#define TALLOC_ABORT(reason) abort()
+# define TALLOC_ABORT(reason) abort()
 #endif
 
 #ifndef discard_const_p
-#if defined(__intptr_t_defined) || defined(HAVE_INTPTR_T)
-# define discard_const_p(type, ptr) ((type *)((intptr_t)(ptr)))
-#else
-# define discard_const_p(type, ptr) ((type *)(ptr))
-#endif
+# if defined(__intptr_t_defined) || defined(HAVE_INTPTR_T)
+#  define discard_const_p(type, ptr) ((type *)((intptr_t)(ptr)))
+# else
+#  define discard_const_p(type, ptr) ((type *)(ptr))
+# endif
 #endif
 
 /* these macros gain us a few percent of speed on gcc */
 #if (__GNUC__ >= 3)
 /* the strange !! is to ensure that __builtin_expect() takes either 0 or 1
    as its first argument */
-#ifndef likely
-#define likely(x)   __builtin_expect(!!(x), 1)
-#endif
-#ifndef unlikely
-#define unlikely(x) __builtin_expect(!!(x), 0)
-#endif
+# ifndef likely
+#  define likely(x)   __builtin_expect(!!(x), 1)
+# endif
+# ifndef unlikely
+#  define unlikely(x) __builtin_expect(!!(x), 0)
+# endif
 #else
-#ifndef likely
-#define likely(x) (x)
-#endif
-#ifndef unlikely
-#define unlikely(x) (x)
-#endif
+# ifndef likely
+#  define likely(x) (x)
+# endif
+# ifndef unlikely
+#  define unlikely(x) (x)
+# endif
 #endif
 
 /* this null_context is only used if talloc_enable_leak_report() or
@@ -147,13 +148,13 @@ static struct {
 
 #if defined(DEVELOPER) && defined(VALGRIND_MAKE_MEM_NOACCESS)
 /* Mark the whole chunk as not accessable */
-#define TC_INVALIDATE_FULL_VALGRIND_CHUNK(_tc) do { \
+# define TC_INVALIDATE_FULL_VALGRIND_CHUNK(_tc) do { \
 	size_t _flen = TC_HDR_SIZE + (_tc)->size; \
 	char *_fptr = (char *)(_tc); \
 	VALGRIND_MAKE_MEM_NOACCESS(_fptr, _flen); \
 } while(0)
 #else
-#define TC_INVALIDATE_FULL_VALGRIND_CHUNK(_tc) do { } while (0)
+# define TC_INVALIDATE_FULL_VALGRIND_CHUNK(_tc) do { } while (0)
 #endif
 
 #define TC_INVALIDATE_FULL_CHUNK(_tc) do { \
@@ -172,14 +173,14 @@ static struct {
 
 #if defined(DEVELOPER) && defined(VALGRIND_MAKE_MEM_NOACCESS)
 /* Mark the unused bytes not accessable */
-#define TC_INVALIDATE_SHRINK_VALGRIND_CHUNK(_tc, _new_size) do { \
+# define TC_INVALIDATE_SHRINK_VALGRIND_CHUNK(_tc, _new_size) do { \
 	size_t _flen = (_tc)->size - (_new_size); \
 	char *_fptr = (char *)TC_PTR_FROM_CHUNK(_tc); \
 	_fptr += (_new_size); \
 	VALGRIND_MAKE_MEM_NOACCESS(_fptr, _flen); \
 } while (0)
 #else
-#define TC_INVALIDATE_SHRINK_VALGRIND_CHUNK(_tc, _new_size) do { } while (0)
+# define TC_INVALIDATE_SHRINK_VALGRIND_CHUNK(_tc, _new_size) do { } while (0)
 #endif
 
 #define TC_INVALIDATE_SHRINK_CHUNK(_tc, _new_size) do { \
@@ -198,14 +199,14 @@ static struct {
 
 #if defined(DEVELOPER) && defined(VALGRIND_MAKE_MEM_UNDEFINED)
 /* Mark the unused bytes as undefined */
-#define TC_UNDEFINE_SHRINK_VALGRIND_CHUNK(_tc, _new_size) do { \
+# define TC_UNDEFINE_SHRINK_VALGRIND_CHUNK(_tc, _new_size) do { \
 	size_t _flen = (_tc)->size - (_new_size); \
 	char *_fptr = (char *)TC_PTR_FROM_CHUNK(_tc); \
 	_fptr += (_new_size); \
 	VALGRIND_MAKE_MEM_UNDEFINED(_fptr, _flen); \
 } while (0)
 #else
-#define TC_UNDEFINE_SHRINK_VALGRIND_CHUNK(_tc, _new_size) do { } while (0)
+# define TC_UNDEFINE_SHRINK_VALGRIND_CHUNK(_tc, _new_size) do { } while (0)
 #endif
 
 #define TC_UNDEFINE_SHRINK_CHUNK(_tc, _new_size) do { \
@@ -215,7 +216,7 @@ static struct {
 
 #if defined(DEVELOPER) && defined(VALGRIND_MAKE_MEM_UNDEFINED)
 /* Mark the new bytes as undefined */
-#define TC_UNDEFINE_GROW_VALGRIND_CHUNK(_tc, _new_size) do { \
+# define TC_UNDEFINE_GROW_VALGRIND_CHUNK(_tc, _new_size) do { \
 	size_t _old_used = TC_HDR_SIZE + (_tc)->size; \
 	size_t _new_used = TC_HDR_SIZE + (_new_size); \
 	size_t _flen = _new_used - _old_used; \
@@ -223,7 +224,7 @@ static struct {
 	VALGRIND_MAKE_MEM_UNDEFINED(_fptr, _flen); \
 } while (0)
 #else
-#define TC_UNDEFINE_GROW_VALGRIND_CHUNK(_tc, _new_size) do { } while (0)
+# define TC_UNDEFINE_GROW_VALGRIND_CHUNK(_tc, _new_size) do { } while (0)
 #endif
 
 #define TC_UNDEFINE_GROW_CHUNK(_tc, _new_size) do { \
@@ -387,17 +388,17 @@ _PUBLIC_ void talloc_set_log_fn(void (*log_fn)(const char *message))
 }
 
 #ifdef HAVE_CONSTRUCTOR_ATTRIBUTE
-#define CONSTRUCTOR __attribute__((constructor))
+# define CONSTRUCTOR __attribute__((constructor))
 #elif defined(HAVE_PRAGMA_INIT)
-#define CONSTRUCTOR
-#pragma init (talloc_lib_init)
+# define CONSTRUCTOR
+# pragma init (talloc_lib_init)
 #endif
 #if defined(HAVE_CONSTRUCTOR_ATTRIBUTE) || defined(HAVE_PRAGMA_INIT)
 void talloc_lib_init(void) CONSTRUCTOR;
 void talloc_lib_init(void)
 {
 	uint32_t random_value;
-#if defined(HAVE_GETAUXVAL) && defined(AT_RANDOM)
+# if defined(HAVE_GETAUXVAL) && defined(AT_RANDOM)
 	uint8_t *p;
 	/*
 	 * Use the kernel-provided random values used for
@@ -422,7 +423,11 @@ void talloc_lib_init(void)
 		int offset = rand() % (16 - sizeof(random_value));
 		memcpy(&random_value, p + offset, sizeof(random_value));
 	} else
-#endif
+# elif defined(HAVE_ARC4RANDOM)
+        if (1) {
+                random_value = arc4random();
+        } else
+# endif
 	{
 		/*
 		 * Otherwise, hope the location we are loaded in
@@ -433,7 +438,7 @@ void talloc_lib_init(void)
 	talloc_magic = random_value & ~TALLOC_FLAG_MASK;
 }
 #else
-#warning "No __attribute__((constructor)) support found on this platform, additional talloc security measures not available"
+# warning "No __attribute__((constructor)) support found on this platform, additional talloc security measures not available"
 #endif
 
 static void talloc_lib_atexit(void)
@@ -2576,11 +2581,11 @@ _PUBLIC_ char *talloc_strndup_append_buffer(char *s, const char *a, size_t n)
 }
 
 #ifndef HAVE_VA_COPY
-#ifdef HAVE___VA_COPY
-#define va_copy(dest, src) __va_copy(dest, src)
-#else
-#define va_copy(dest, src) (dest) = (src)
-#endif
+# ifdef HAVE___VA_COPY
+#  define va_copy(dest, src) __va_copy(dest, src)
+# else
+#  define va_copy(dest, src) (dest) = (src)
+# endif
 #endif
 
 static struct talloc_chunk *_vasprintf_tc(const void *t,

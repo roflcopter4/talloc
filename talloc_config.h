@@ -1,6 +1,10 @@
 #ifndef TALLOC_CONFIG_H_
 #define TALLOC_CONFIG_H_
 
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
+
 #ifdef _WIN32
 #  define WIN32_LEAN_AND_MEAN
 #  if defined __MINGW32__ || defined __MINGW64__
@@ -31,6 +35,13 @@
 #include <string.h>
 #include <sys/types.h>
 
+#define LOOOOO
+
+#if (!defined(HAVE_SYS_AUXV_H) || !defined(AT_RANDOM)) && !defined(HAVE_ARC4RANDOM) && defined(HAVE_BSD_STDLIB_H)
+#  include "bsd/stdlib.h"
+#  define HAVE_ARC4RANDOM
+#endif
+
 #define HAVE_CONSTRUCTOR_ATTRIBUTE
 #define HAVE_INTPTR_T
 #define HAVE_STRING_H
@@ -57,6 +68,10 @@
 
 //#define _PUBLIC_ __attribute__((visibility("default")))
 //#define _PRIVATE_ __attribute__((visibility("hidden")))
+
+
+#define MAX(IA, IB)    __extension__({__auto_type ia=(IA); __auto_type ib=(IB); (ia>ib)?ia:ib;})
+#define MIN(IA, IB)    __extension__({__auto_type ia=(IA); __auto_type ib=(IB); (ia<ib)?ia:ib;})
 
 #ifndef MIN
 #  define MIN(a,b) ((a)<(b)?(a):(b))
