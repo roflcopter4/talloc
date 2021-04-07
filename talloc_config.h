@@ -35,8 +35,6 @@
 #include <string.h>
 #include <sys/types.h>
 
-#define LOOOOO
-
 #if (!defined(HAVE_SYS_AUXV_H) || !defined(AT_RANDOM)) && !defined(HAVE_ARC4RANDOM) && defined(HAVE_BSD_STDLIB_H)
 #  include "bsd/stdlib.h"
 #  define HAVE_ARC4RANDOM
@@ -69,16 +67,20 @@
 //#define _PUBLIC_ __attribute__((visibility("default")))
 //#define _PRIVATE_ __attribute__((visibility("hidden")))
 
-
-#define MAX(IA, IB)    __extension__({__auto_type ia=(IA); __auto_type ib=(IB); (ia>ib)?ia:ib;})
-#define MIN(IA, IB)    __extension__({__auto_type ia=(IA); __auto_type ib=(IB); (ia<ib)?ia:ib;})
-
 #ifndef MIN
-#  define MIN(a,b) ((a)<(b)?(a):(b))
+#  ifdef __GNUC__
+#    define MIN(IA, IB) __extension__({__auto_type ia=(IA); __auto_type ib=(IB); (ia<ib)?ia:ib;})
+#  else
+#    define MIN(a,b) ((a)<(b)?(a):(b))
+#  endif
 #endif
 
 #ifndef MAX
-#  define MAX(a,b) ((a)>(b)?(a):(b))
+#  ifdef __GNUC__
+#    define MAX(IA, IB) __extension__({__auto_type ia=(IA); __auto_type ib=(IB); (ia>ib)?ia:ib;})
+#  else
+#    define MAX(a,b) ((a)>(b)?(a):(b))
+#  endif
 #endif
 
 #endif /* talloc_config.h */
