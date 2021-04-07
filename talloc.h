@@ -35,15 +35,23 @@ extern "C" {
 
 /* for old gcc releases that don't have the feature test macro __has_attribute */
 #ifndef __has_attribute
-#define __has_attribute(x) 0
+#  define __has_attribute(x) 0
 #endif
 
 #ifndef _PUBLIC_
-#if __has_attribute(visibility)
-#define _PUBLIC_ __attribute__((visibility("default")))
-#else
-#define _PUBLIC_
-#endif
+#  ifdef _WIN32
+#    ifdef BUILDING_DLL_
+#      define _PUBLIC_ __declspec(dllexport) extern
+#    else
+#      define _PUBLIC_ __declspec(dllimport) extern
+#    endif
+#  else
+#    if __has_attribute(visibility)
+#      define _PUBLIC_ __attribute__((visibility("default"))) extern
+#    else
+#      define _PUBLIC_ extern
+#    endif
+#  endif
 #endif
 
 /**
