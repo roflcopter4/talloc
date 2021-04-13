@@ -20,7 +20,7 @@
 #  elif defined _MSC_VER
 #    define HAVE_PRAGMA_INIT
 #  endif
-#  include <Windows.h>
+#  include <windows.h>
 #  include <io.h>
 #endif
 

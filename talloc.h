@@ -35,23 +35,40 @@ extern "C" {
 
 /* for old gcc releases that don't have the feature test macro __has_attribute */
 #ifndef __has_attribute
-#  define __has_attribute(x) 0
+# define __has_attribute(x) 0
+#endif
+#ifndef __GNUC__
+# define __attribute__(x)
 #endif
 
 #ifndef _PUBLIC_
-#  ifdef _WIN32
-#    ifdef BUILDING_DLL_
-#      define _PUBLIC_ __declspec(dllexport) extern
-#    else
-#      define _PUBLIC_ __declspec(dllimport) extern
-#    endif
+# ifdef _WIN32
+#  ifdef BUILDING_DLL_
+#   define _PUBLIC_ __declspec(dllexport) extern
 #  else
-#    if __has_attribute(visibility)
-#      define _PUBLIC_ __attribute__((visibility("default"))) extern
-#    else
-#      define _PUBLIC_ extern
-#    endif
+#   define _PUBLIC_ __declspec(dllimport) extern
 #  endif
+# else
+#  if __has_attribute(visibility)
+#   define _PUBLIC_ __attribute__((visibility("default"))) extern
+#  else
+#   define _PUBLIC_ extern
+#  endif
+# endif
+#endif
+#ifndef CONST_ATTRIBUTE
+# if __has_attribute(const)
+#  define CONST_ATTRIBUTE __attribute__((const))
+# else
+#  define CONST_ATTRIBUTE
+# endif
+#endif
+#ifndef PURE_ATTRIBUTE
+# if __has_attribute(pure)
+#  define PURE_ATTRIBUTE __attribute__((pure))
+# else
+#  define PURE_ATTRIBUTE
+# endif
 #endif
 
 /**
@@ -66,10 +83,10 @@ extern "C" {
 #define TALLOC_VERSION_MAJOR 2
 #define TALLOC_VERSION_MINOR 3
 
-_PUBLIC_ int talloc_version_major(void);
-_PUBLIC_ int talloc_version_minor(void);
+_PUBLIC_ int talloc_version_major(void) CONST_ATTRIBUTE;
+_PUBLIC_ int talloc_version_minor(void) CONST_ATTRIBUTE;
 /* This is mostly useful only for testing */
-_PUBLIC_ int talloc_test_get_magic(void);
+_PUBLIC_ int talloc_test_get_magic(void) PURE_ATTRIBUTE;
 
 /**
  * @brief Define a talloc parent type
@@ -100,34 +117,38 @@ typedef void TALLOC_CTX;
   this uses a little trick to allow __LINE__ to be stringified
 */
 #ifndef __location__
-#define __TALLOC_STRING_LINE1__(s)    #s
-#define __TALLOC_STRING_LINE2__(s)   __TALLOC_STRING_LINE1__(s)
-#define __TALLOC_STRING_LINE3__  __TALLOC_STRING_LINE2__(__LINE__)
-#define __location__ __FILE__ ":" __TALLOC_STRING_LINE3__
+# define __TALLOC_STRING_LINE1__(s)    #s
+# define __TALLOC_STRING_LINE2__(s)   __TALLOC_STRING_LINE1__(s)
+# define __TALLOC_STRING_LINE3__  __TALLOC_STRING_LINE2__(__LINE__)
+# define __location__ __FILE__ ":" __TALLOC_STRING_LINE3__
 #endif
 
 #ifndef TALLOC_DEPRECATED
-#define TALLOC_DEPRECATED 0
+# define TALLOC_DEPRECATED 0
 #endif
 
 #ifndef PRINTF_ATTRIBUTE
-#if __has_attribute(format) || (__GNUC__ >= 3)
+# if __has_attribute(format) || (__GNUC__ >= 3)
 /** Use gcc attribute to check printf fns.  a1 is the 1-based index of
  * the parameter containing the format, and a2 the index of the first
  * argument. Note that some gcc 2.x versions don't handle this
  * properly **/
-#define PRINTF_ATTRIBUTE(a1, a2) __attribute__ ((format (__printf__, a1, a2)))
-#else
-#define PRINTF_ATTRIBUTE(a1, a2)
-#endif
+#  if (__GNUC__ >= 6)
+#   define PRINTF_ATTRIBUTE(a1, a2) __attribute__ ((format (__gnu_printf__, a1, a2)))
+#  else
+#   define PRINTF_ATTRIBUTE(a1, a2) __attribute__ ((format (__printf__, a1, a2)))
+#  endif
+# else
+#  define PRINTF_ATTRIBUTE(a1, a2)
+# endif
 #endif
 
 #ifndef _DEPRECATED_
-#if __has_attribute(deprecated) || (__GNUC__ >= 3)
-#define _DEPRECATED_ __attribute__ ((deprecated))
-#else
-#define _DEPRECATED_
-#endif
+# if __has_attribute(deprecated) || (__GNUC__ >= 3)
+#  define _DEPRECATED_ __attribute__ ((deprecated))
+# else
+#  define _DEPRECATED_
+# endif
 #endif
 #ifdef DOXYGEN
 
@@ -166,7 +187,7 @@ typedef void TALLOC_CTX;
  */
 _PUBLIC_ void *talloc(const void *ctx, #type);
 #else
-#define talloc(ctx, type) (type *)talloc_named_const(ctx, sizeof(type), #type)
+# define talloc(ctx, type) (type *)talloc_named_const(ctx, sizeof(type), #type)
 _PUBLIC_ void *_talloc(const void *context, size_t size);
 #endif
 
@@ -254,7 +275,7 @@ _PUBLIC_ void *talloc_init(const char *fmt, ...) PRINTF_ATTRIBUTE(1,2);
  */
 _PUBLIC_ int talloc_free(void *ptr);
 #else
-#define talloc_free(ctx) _talloc_free(ctx, __location__)
+# define talloc_free(ctx) _talloc_free(ctx, __location__)
 _PUBLIC_ int _talloc_free(void *ptr, const char *location);
 #endif
 
@@ -369,23 +390,23 @@ _PUBLIC_ void *talloc_steal(const void *new_ctx, const void *ptr);
 #else /* DOXYGEN */
 /* try to make talloc_set_destructor() and talloc_steal() type safe,
    if we have a recent gcc */
-#if (__GNUC__ >= 3)
-#define _TALLOC_TYPEOF(ptr) __typeof__(ptr)
-#define talloc_set_destructor(ptr, function)				      \
+# if (__GNUC__ >= 3)
+#  define _TALLOC_TYPEOF(ptr) __typeof__(ptr)
+#  define talloc_set_destructor(ptr, function)				      \
 	do {								      \
 		int (*_talloc_destructor_fn)(_TALLOC_TYPEOF(ptr)) = (function);	      \
 		_talloc_set_destructor((ptr), (int (*)(void *))_talloc_destructor_fn); \
 	} while(0)
 /* this extremely strange macro is to avoid some braindamaged warning
    stupidity in gcc 4.1.x */
-#define talloc_steal(ctx, ptr) \
+#  define talloc_steal(ctx, ptr) \
         __extension__ ({ _TALLOC_TYPEOF(ptr) __talloc_steal_ret = (_TALLOC_TYPEOF(ptr))_talloc_steal_loc((ctx),(ptr), __location__); __talloc_steal_ret; })
-#else /* __GNUC__ >= 3 */
-#define talloc_set_destructor(ptr, function) \
+# else /* __GNUC__ >= 3 */
+#  define talloc_set_destructor(ptr, function) \
 	_talloc_set_destructor((ptr), (int (*)(void *))(function))
-#define _TALLOC_TYPEOF(ptr) void *
-#define talloc_steal(ctx, ptr) (_TALLOC_TYPEOF(ptr))_talloc_steal_loc((ctx),(ptr), __location__)
-#endif /* __GNUC__ >= 3 */
+#  define _TALLOC_TYPEOF(ptr) void *
+#  define talloc_steal(ctx, ptr) (_TALLOC_TYPEOF(ptr))_talloc_steal_loc((ctx),(ptr), __location__)
+# endif /* __GNUC__ >= 3 */
 _PUBLIC_ void _talloc_set_destructor(const void *ptr, int (*_destructor)(void *));
 _PUBLIC_ void *_talloc_steal_loc(const void *new_ctx, const void *ptr, const char *location);
 #endif /* DOXYGEN */
@@ -445,7 +466,7 @@ _PUBLIC_ const char *talloc_set_name(const void *ptr, const char *fmt, ...) PRIN
  */
 _PUBLIC_ void *talloc_move(const void *new_ctx, void **pptr);
 #else
-#define talloc_move(ctx, pptr) (_TALLOC_TYPEOF(*(pptr)))_talloc_move((ctx),(void *)(pptr))
+# define talloc_move(ctx, pptr) (_TALLOC_TYPEOF(*(pptr)))_talloc_move((ctx),(void *)(pptr))
 _PUBLIC_ void *_talloc_move(const void *new_ctx, const void *pptr);
 #endif
 
@@ -536,7 +557,7 @@ _PUBLIC_ void *talloc_named_const(const void *context, size_t size, const char *
  */
 _PUBLIC_ void *talloc_size(const void *ctx, size_t size);
 #else
-#define talloc_size(ctx, size) talloc_named_const(ctx, size, __location__)
+# define talloc_size(ctx, size) talloc_named_const(ctx, size, __location__)
 #endif
 
 #ifdef DOXYGEN
@@ -563,7 +584,7 @@ _PUBLIC_ void *talloc_size(const void *ctx, size_t size);
  */
 _PUBLIC_ void *talloc_ptrtype(const void *ctx, #type);
 #else
-#define talloc_ptrtype(ctx, ptr) (_TALLOC_TYPEOF(ptr))talloc_size(ctx, sizeof(*(ptr)))
+# define talloc_ptrtype(ctx, ptr) (_TALLOC_TYPEOF(ptr))talloc_size(ctx, sizeof(*(ptr)))
 #endif
 
 #ifdef DOXYGEN
@@ -581,7 +602,7 @@ _PUBLIC_ void *talloc_ptrtype(const void *ctx, #type);
  */
 _PUBLIC_ void *talloc_new(const void *ctx);
 #else
-#define talloc_new(ctx) talloc_named_const(ctx, 0, "talloc_new: " __location__)
+# define talloc_new(ctx) talloc_named_const(ctx, 0, "talloc_new: " __location__)
 #endif
 
 #ifdef DOXYGEN
@@ -626,8 +647,8 @@ _PUBLIC_ void *talloc_zero(const void *ctx, #type);
  */
 _PUBLIC_ void *talloc_zero_size(const void *ctx, size_t size);
 #else
-#define talloc_zero(ctx, type) (type *)_talloc_zero(ctx, sizeof(type), #type)
-#define talloc_zero_size(ctx, size) _talloc_zero(ctx, size, __location__)
+# define talloc_zero(ctx, type) (type *)_talloc_zero(ctx, sizeof(type), #type)
+# define talloc_zero_size(ctx, size) _talloc_zero(ctx, size, __location__)
 _PUBLIC_ void *_talloc_zero(const void *ctx, size_t size, const char *name);
 #endif
 
@@ -730,7 +751,7 @@ _PUBLIC_ size_t talloc_total_blocks(const void *ptr);
  */
 _PUBLIC_ void *talloc_memdup(const void *t, const void *p, size_t size);
 #else
-#define talloc_memdup(t, p, size) _talloc_memdup(t, p, size, __location__)
+# define talloc_memdup(t, p, size) _talloc_memdup(t, p, size, __location__)
 _PUBLIC_ void *_talloc_memdup(const void *t, const void *p, size_t size, const char *name);
 #endif
 
@@ -773,8 +794,8 @@ _PUBLIC_ void talloc_set_type(const char *ptr, #type);
  */
 type *talloc_get_type(const void *ptr, #type);
 #else
-#define talloc_set_type(ptr, type) talloc_set_name_const(ptr, #type)
-#define talloc_get_type(ptr, type) (type *)talloc_check_name(ptr, #type)
+# define talloc_set_type(ptr, type) talloc_set_name_const(ptr, #type)
+# define talloc_get_type(ptr, type) (type *)talloc_check_name(ptr, #type)
 #endif
 
 #ifdef DOXYGEN
@@ -794,11 +815,11 @@ type *talloc_get_type(const void *ptr, #type);
  */
 _PUBLIC_ void *talloc_get_type_abort(const void *ptr, #type);
 #else
-#ifdef TALLOC_GET_TYPE_ABORT_NOOP
-#define talloc_get_type_abort(ptr, type) (type *)(ptr)
-#else
-#define talloc_get_type_abort(ptr, type) (type *)_talloc_get_type_abort(ptr, #type, __location__)
-#endif
+# ifdef TALLOC_GET_TYPE_ABORT_NOOP
+#  define talloc_get_type_abort(ptr, type) (type *)(ptr)
+# else
+#  define talloc_get_type_abort(ptr, type) (type *)_talloc_get_type_abort(ptr, #type, __location__)
+# endif
 _PUBLIC_ void *_talloc_get_type_abort(const void *ptr, const char *name, const char *location);
 #endif
 
@@ -839,7 +860,7 @@ _PUBLIC_ void *talloc_find_parent_byname(const void *ctx, const char *name);
  */
 _PUBLIC_ void *talloc_find_parent_bytype(const void *ptr, #type);
 #else
-#define talloc_find_parent_bytype(ptr, type) (type *)talloc_find_parent_byname(ptr, #type)
+# define talloc_find_parent_bytype(ptr, type) (type *)talloc_find_parent_byname(ptr, #type)
 #endif
 
 /**
@@ -908,7 +929,7 @@ _PUBLIC_ void *talloc_pooled_object(const void *ctx, #type,
 			   unsigned num_subobjects,
 			   size_t total_subobjects_size);
 #else
-#define talloc_pooled_object(_ctx, _type, \
+# define talloc_pooled_object(_ctx, _type, \
 			     _num_subobjects, \
 			     _total_subobjects_size) \
 	(_type *)_talloc_pooled_object((_ctx), sizeof(_type), #_type, \
@@ -1016,7 +1037,7 @@ _PUBLIC_ size_t talloc_reference_count(const void *ptr);
  */
 _PUBLIC_ void *talloc_reference(const void *ctx, const void *ptr);
 #else
-#define talloc_reference(ctx, ptr) (_TALLOC_TYPEOF(ptr))_talloc_reference_loc((ctx),(ptr), __location__)
+# define talloc_reference(ctx, ptr) (_TALLOC_TYPEOF(ptr))_talloc_reference_loc((ctx),(ptr), __location__)
 _PUBLIC_ void *_talloc_reference_loc(const void *context, const void *ptr, const char *location);
 #endif
 
@@ -1179,7 +1200,7 @@ _PUBLIC_ void *talloc_reparent(const void *old_parent, const void *new_parent, c
  */
 _PUBLIC_ void *talloc_array(const void *ctx, #type, unsigned count);
 #else
-#define talloc_array(ctx, type, count) (type *)_talloc_array(ctx, sizeof(type), count, #type)
+# define talloc_array(ctx, type, count) (type *)_talloc_array(ctx, sizeof(type), count, #type)
 _PUBLIC_ void *_talloc_array(const void *ctx, size_t el_size, unsigned count, const char *name);
 #endif
 
@@ -1197,7 +1218,7 @@ _PUBLIC_ void *_talloc_array(const void *ctx, size_t el_size, unsigned count, co
  */
 _PUBLIC_ void *talloc_array_size(const void *ctx, size_t size, unsigned count);
 #else
-#define talloc_array_size(ctx, size, count) _talloc_array(ctx, size, count, __location__)
+# define talloc_array_size(ctx, size, count) _talloc_array(ctx, size, count, __location__)
 #endif
 
 #ifdef DOXYGEN
@@ -1221,7 +1242,7 @@ _PUBLIC_ void *talloc_array_size(const void *ctx, size_t size, unsigned count);
  */
 void *talloc_array_ptrtype(const void *ctx, const void *ptr, unsigned count);
 #else
-#define talloc_array_ptrtype(ctx, ptr, count) (_TALLOC_TYPEOF(ptr))talloc_array_size(ctx, sizeof(*(ptr)), count)
+# define talloc_array_ptrtype(ctx, ptr, count) (_TALLOC_TYPEOF(ptr))talloc_array_size(ctx, sizeof(*(ptr)), count)
 #endif
 
 #ifdef DOXYGEN
@@ -1237,7 +1258,7 @@ void *talloc_array_ptrtype(const void *ctx, const void *ptr, unsigned count);
  */
 size_t talloc_array_length(const void *ctx);
 #else
-#define talloc_array_length(ctx) (talloc_get_size(ctx)/sizeof(*ctx))
+# define talloc_array_length(ctx) (talloc_get_size(ctx)/sizeof(*ctx))
 #endif
 
 #ifdef DOXYGEN
@@ -1261,7 +1282,7 @@ size_t talloc_array_length(const void *ctx);
  */
 void *talloc_zero_array(const void *ctx, #type, unsigned count);
 #else
-#define talloc_zero_array(ctx, type, count) (type *)_talloc_zero_array(ctx, sizeof(type), count, #type)
+# define talloc_zero_array(ctx, type, count) (type *)_talloc_zero_array(ctx, sizeof(type), count, #type)
 _PUBLIC_ void *_talloc_zero_array(const void *ctx,
 			 size_t el_size,
 			 unsigned count,
@@ -1301,7 +1322,7 @@ _PUBLIC_ void *_talloc_zero_array(const void *ctx,
  */
 _PUBLIC_ void *talloc_realloc(const void *ctx, void *ptr, #type, size_t count);
 #else
-#define talloc_realloc(ctx, p, type, count) (type *)_talloc_realloc_array(ctx, p, sizeof(type), count, #type)
+# define talloc_realloc(ctx, p, type, count) (type *)_talloc_realloc_array(ctx, p, sizeof(type), count, #type)
 _PUBLIC_ void *_talloc_realloc_array(const void *ctx, void *ptr, size_t el_size, unsigned count, const char *name);
 #endif
 
@@ -1322,7 +1343,7 @@ _PUBLIC_ void *_talloc_realloc_array(const void *ctx, void *ptr, size_t el_size,
  */
 void *talloc_realloc_size(const void *ctx, void *ptr, size_t size);
 #else
-#define talloc_realloc_size(ctx, ptr, size) _talloc_realloc(ctx, ptr, size, __location__)
+# define talloc_realloc_size(ctx, ptr, size) _talloc_realloc(ctx, ptr, size, __location__)
 _PUBLIC_ void *_talloc_realloc(const void *context, void *ptr, size_t size, const char *name);
 #endif
 
@@ -1948,16 +1969,16 @@ _PUBLIC_ int talloc_set_memlimit(const void *ctx, size_t max_size) _DEPRECATED_;
 /* @} ******************************************************************/
 
 #if TALLOC_DEPRECATED
-#define talloc_zero_p(ctx, type) talloc_zero(ctx, type)
-#define talloc_p(ctx, type) talloc(ctx, type)
-#define talloc_array_p(ctx, type, count) talloc_array(ctx, type, count)
-#define talloc_realloc_p(ctx, p, type, count) talloc_realloc(ctx, p, type, count)
-#define talloc_destroy(ctx) talloc_free(ctx)
-#define talloc_append_string(c, s, a) (s?talloc_strdup_append(s,a):talloc_strdup(c, a))
+# define talloc_zero_p(ctx, type) talloc_zero(ctx, type)
+# define talloc_p(ctx, type) talloc(ctx, type)
+# define talloc_array_p(ctx, type, count) talloc_array(ctx, type, count)
+# define talloc_realloc_p(ctx, p, type, count) talloc_realloc(ctx, p, type, count)
+# define talloc_destroy(ctx) talloc_free(ctx)
+# define talloc_append_string(c, s, a) (s?talloc_strdup_append(s,a):talloc_strdup(c, a))
 #endif
 
 #ifndef TALLOC_MAX_DEPTH
-#define TALLOC_MAX_DEPTH 10000
+# define TALLOC_MAX_DEPTH 10000
 #endif
 
 #ifdef __cplusplus
