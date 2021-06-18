@@ -83,4 +83,9 @@
 #  endif
 #endif
 
+#ifdef USE_JEMALLOC
+#  define JEMALLOC_MANGLE
+#  include <jemalloc/jemalloc.h>
+#endif
+
 #endif /* talloc_config.h */
