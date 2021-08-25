@@ -55,6 +55,11 @@
 # include <valgrind.h>
 #endif
 
+#ifdef USE_LIBSODIUM
+# include <sodium/core.h>
+# include <sodium/randombytes.h>
+#endif
+
 #ifdef NDEBUG
 # define DBG_INITIALIZE_NULL
 #else
@@ -419,7 +424,22 @@ void
 talloc_lib_init(void)
 {
         uint32_t random_value;
-# if defined(HAVE_GETAUXVAL) && defined(AT_RANDOM)
+
+# ifdef USE_LIBSODIUM
+        if (sodium_init() != 0) {
+                fprintf(stderr, "Sodium Init failed! %s\n", strerror(errno));
+                fflush(stderr);
+                _Exit(1);
+        } else {
+                fprintf(stderr, "Sodium initialized!\n");
+                fflush(stderr);
+        }
+        random_value = randombytes_random();
+        fprintf(stderr, "random value: %u!\n", random_value);
+        fflush(stderr);
+# else
+
+#  if defined(HAVE_GETAUXVAL) && defined(AT_RANDOM)
         uint8_t *p;
         /*
          * Use the kernel-provided random values used for
@@ -448,7 +468,7 @@ talloc_lib_init(void)
         if (1) {
                 random_value = arc4random();
         } else
-# endif
+#  endif
         {
                 /*
                  * Otherwise, hope the location we are loaded in
@@ -456,7 +476,10 @@ talloc_lib_init(void)
                  */
                 random_value = ((uintptr_t)talloc_lib_init & 0xFFFFFFFF);
         }
+# endif
         talloc_magic = random_value & ~TALLOC_FLAG_MASK;
+        fprintf(stderr, "magic: %u!\n", talloc_magic);
+        fflush(stderr);
 }
 #else
 # warning "No __attribute__((constructor)) support found on this platform, additional talloc security measures not available"

@@ -35,6 +35,13 @@
 #include <string.h>
 #include <sys/types.h>
 
+#ifdef HAVE_SYS_AUXV_H
+# include <sys/auxv.h>
+# ifndef HAVE_GETAUXVAL
+#  define HAVE_GETAUXVAL 1
+# endif
+#endif
+
 #if (!defined(HAVE_SYS_AUXV_H) || !defined(AT_RANDOM)) && !defined(HAVE_ARC4RANDOM) && defined(HAVE_BSD_STDLIB_H)
 #  include "bsd/stdlib.h"
 #  define HAVE_ARC4RANDOM
