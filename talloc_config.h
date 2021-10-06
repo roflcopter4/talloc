@@ -42,10 +42,19 @@
 # endif
 #endif
 
-#if (!defined(HAVE_SYS_AUXV_H) || !defined(AT_RANDOM)) && !defined(HAVE_ARC4RANDOM) && defined(HAVE_BSD_STDLIB_H)
-#  include "bsd/stdlib.h"
-#  define HAVE_ARC4RANDOM
+//#if (!defined(HAVE_SYS_AUXV_H) || !defined(AT_RANDOM)) && !defined(HAVE_ARC4RANDOM) && defined(HAVE_BSD_STDLIB_H)
+//#  include "bsd/stdlib.h"
+//#  define HAVE_ARC4RANDOM
+//#endif
+
+#if defined HAVE_LIBBSD
+extern uint32_t arc4random(void);
 #endif
+
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+#include <time.h>
 
 #define HAVE_CONSTRUCTOR_ATTRIBUTE
 #define HAVE_INTPTR_T
@@ -68,8 +77,8 @@
 #define HAVE_VA_COPY
 
 #define TALLOC_BUILD_VERSION_MAJOR 2
-#define TALLOC_BUILD_VERSION_MINOR 3
-#define TALLOC_BUILD_VERSION_RELEASE 2
+#define TALLOC_BUILD_VERSION_MINOR 4
+#define TALLOC_BUILD_VERSION_RELEASE 1
 
 //#define _PUBLIC_ __attribute__((visibility("default")))
 //#define _PRIVATE_ __attribute__((visibility("hidden")))

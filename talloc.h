@@ -50,7 +50,7 @@ extern "C" {
 #  endif
 # else
 #  if __has_attribute(visibility)
-#   define _PUBLIC_ __attribute__((visibility("default"))) extern
+#   define _PUBLIC_ __attribute__((__visibility__("default"))) extern
 #  else
 #   define _PUBLIC_ extern
 #  endif
@@ -58,14 +58,14 @@ extern "C" {
 #endif
 #ifndef CONST_ATTRIBUTE
 # if __has_attribute(const)
-#  define CONST_ATTRIBUTE __attribute__((const))
+#  define CONST_ATTRIBUTE __attribute__((__const__))
 # else
 #  define CONST_ATTRIBUTE
 # endif
 #endif
 #ifndef PURE_ATTRIBUTE
 # if __has_attribute(pure)
-#  define PURE_ATTRIBUTE __attribute__((pure))
+#  define PURE_ATTRIBUTE __attribute__((__pure__))
 # else
 #  define PURE_ATTRIBUTE
 # endif
@@ -81,7 +81,7 @@ extern "C" {
  */
 
 #define TALLOC_VERSION_MAJOR 2
-#define TALLOC_VERSION_MINOR 3
+#define TALLOC_VERSION_MINOR 4
 
 _PUBLIC_ int talloc_version_major(void) CONST_ATTRIBUTE;
 _PUBLIC_ int talloc_version_minor(void) CONST_ATTRIBUTE;
@@ -134,9 +134,9 @@ typedef void TALLOC_CTX;
  * argument. Note that some gcc 2.x versions don't handle this
  * properly **/
 #  if (__GNUC__ >= 6)
-#   define PRINTF_ATTRIBUTE(a1, a2) __attribute__((format(__gnu_printf__, a1, a2)))
+#   define PRINTF_ATTRIBUTE(a1, a2) __attribute__((__format__(__gnu_printf__, a1, a2)))
 #  else
-#   define PRINTF_ATTRIBUTE(a1, a2) __attribute__((format(__printf__, a1, a2)))
+#   define PRINTF_ATTRIBUTE(a1, a2) __attribute__((__format__(__printf__, a1, a2)))
 #  endif
 # else
 #  define PRINTF_ATTRIBUTE(a1, a2)
@@ -145,7 +145,7 @@ typedef void TALLOC_CTX;
 
 #ifndef _DEPRECATED_
 # if __has_attribute(deprecated) || (__GNUC__ >= 3)
-#  define _DEPRECATED_ __attribute__((deprecated))
+#  define _DEPRECATED_ __attribute__((__deprecated__))
 # else
 #  define _DEPRECATED_
 # endif
