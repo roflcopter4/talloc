@@ -470,7 +470,7 @@ talloc_vlog_to_stderr(char const *fmt, va_list ap)
             size_t num = backtrace(arr, 128);          \
             fflush(stderr);                            \
             fsync(2);                                  \
-            (void)write(2, "<<< FATAL ERROR >>>\n    STACKTRACE:\n", 38);  \
+            (void)write(2, "<<< FATAL ERROR >>>\n    STACKTRACE:\n", 36);  \
             backtrace_symbols_fd(arr, num, 2);         \
             write(2, "\n", 1);                         \
             fsync(2);                                  \
@@ -539,7 +539,7 @@ talloc_lib_init(void)
 
 static pthread_once_t emergency_once = PTHREAD_ONCE_INIT;
 extern void talloc_emergency_library_init(void);
-__attribute__((__constructor__(0)))
+__attribute__((__constructor__(101)))
 void talloc_emergency_library_init(void)
 {
       pthread_once(&emergency_once, talloc_lib_init);
@@ -635,11 +635,12 @@ talloc_chunk_from_ptr(const void *ptr)
 
       if (unlikely((chunk->flags & (TALLOC_FLAG_FREE | ~TALLOC_FLAG_MASK)) != talloc_magic))
       {
-            talloc_log("Value: (raw: 0x%08X), (afterfree: 0x%08X), (mask: 0x%08X), (magic: 0x%08X)\n",
-                       chunk->flags,
-                       TALLOC_MAGIC_NON_RANDOM | TALLOC_FLAG_FREE,
+            talloc_log("Value: (ptr: 0x%p)  (raw: 0x%08X), (afterfree: 0x%08X), (mask: 0x%08X), (magic: 0x%08X)\n",
+                       chunk->parent, chunk->flags,
+                       (TALLOC_MAGIC_NON_RANDOM | TALLOC_FLAG_FREE),
                        chunk->flags & (TALLOC_FLAG_FREE | ~TALLOC_FLAG_MASK),
                        talloc_magic);
+            SHOW_STACKTRACE();
 
             if ((chunk->flags & (TALLOC_FLAG_FREE | ~TALLOC_FLAG_MASK)) ==
                 (TALLOC_MAGIC_NON_RANDOM | TALLOC_FLAG_FREE))
@@ -902,7 +903,7 @@ __talloc_with_prefix(const void           *context,
             /*
              * malloc()! At long last!
              */
-            ptr = calloc(1, total_len);
+            ptr = malloc(total_len);
             if (unlikely(ptr == NULL))
                   return NULL;
 
