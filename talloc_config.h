@@ -7,6 +7,8 @@
 
 #ifdef _WIN32
 #  define WIN32_LEAN_AND_MEAN
+#  define _CRT_NONSTDC_NO_DEPRECATE 1
+#  define _CRT_NONSTDC_NO_WARNINGS  1
 #  if defined __MINGW32__ || defined __MINGW64__
 #    define __USE_MINGW_ANSI_STDIO 1
 #    ifdef fprintf
@@ -56,25 +58,48 @@ extern uint32_t arc4random(void);
 #endif
 #include <time.h>
 
-#define HAVE_CONSTRUCTOR_ATTRIBUTE
-#define HAVE_INTPTR_T
-#define HAVE_STRING_H
-#define STDC_HEADERS 1
-#define HAVE_STRERROR
-#define HAVE_ERRNO_DECL
-#define HAVE_STRDUP
-#define HAVE_MEMMOVE
-#define HAVE_STRNLEN
-#define HAVE_STRNDUP
-#define HAVE_SETENV
-#define HAVE_STRTOLL
-#define HAVE_STDBOOL_H
-#define HAVE_BOOL
-#define HAVE_UINTPTR_T
-#define HAVE_PTRDIFF_T
-#define HAVE_USLEEP
-#define HAVE_DECL_EWOULDBLOCK
-#define HAVE_VA_COPY
+#if defined __MINGW32__ || defined __MINGW64__ || defined __GNU_LIBRARY__ || defined __FreeBSD__
+# define HAVE_BOOL
+# define HAVE_CONSTRUCTOR_ATTRIBUTE
+# define HAVE_DECL_EWOULDBLOCK
+# define HAVE_ERRNO_DECL
+# define HAVE_INTPTR_T
+# define HAVE_MEMMOVE
+# define HAVE_PTRDIFF_T
+# define HAVE_SETENV
+# define HAVE_STDBOOL_H
+# define HAVE_STRDUP
+# define HAVE_STRERROR
+# define HAVE_STRING_H
+# define HAVE_STRNDUP
+# define HAVE_STRNLEN
+# define HAVE_STRTOLL
+# define HAVE_UINTPTR_T
+# define HAVE_USLEEP
+# define HAVE_VA_COPY
+# define STDC_HEADERS 1
+#elif defined _MSC_VER
+# ifdef __clang__
+#  define HAVE_STDATOMIC_H
+# endif
+# define HAVE_BOOL
+# define HAVE_DECL_EWOULDBLOCK
+# define HAVE_ERRNO_DECL
+# define HAVE_INTPTR_T
+# define HAVE_MEMMOVE
+# define HAVE_PTRDIFF_T
+# define HAVE_SETENV
+# define HAVE_STDBOOL_H
+# define HAVE_STRDUP
+# define HAVE_STRERROR
+# define HAVE_STRING_H
+# define HAVE_STRNDUP
+# define HAVE_STRNLEN
+# define HAVE_STRTOLL
+# define HAVE_UINTPTR_T
+# define HAVE_VA_COPY
+# define STDC_HEADERS 1
+#endif
 
 #define TALLOC_BUILD_VERSION_MAJOR 2
 #define TALLOC_BUILD_VERSION_MINOR 4

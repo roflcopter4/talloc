@@ -30,17 +30,34 @@
   inspired by http://swapped.cc/halloc/
 */
 
+// ReSharper disable CppInconsistentNaming
+// ReSharper disable CppClangTidyBugproneReservedIdentifier
+// ReSharper disable CppClangTidyModernizeUseAuto
+// ReSharper disable CppJoinDeclarationAndAssignment
+
+#define _
 #include "talloc.h"
 
 #include "talloc_config.h"
 
 #include "util/initializer_hack.h"
 #include <pthread.h>
+
 #ifdef HAVE_STDATOMIC_H
 # include <stdatomic.h>
 #endif
+#ifdef _MSC_VER
+#  include <process.h>
+#endif
 
-
+#ifdef _MSC_VER
+#  define inline __inline
+#  ifdef _WIN64
+      typedef unsigned __int64 ssize_t;
+#  else
+      typedef unsigned __int32 ssize_t;
+#  endif
+#endif
 
 #if (TALLOC_VERSION_MAJOR != TALLOC_BUILD_VERSION_MAJOR)
 #error "TALLOC_VERSION_MAJOR != TALLOC_BUILD_VERSION_MAJOR"
@@ -439,12 +456,13 @@ talloc_log_to_stderr(char const *message)
 static void
 talloc_vlog_to_stderr(char const *fmt, va_list ap)
 {
-      fprintf(stderr, fmt, ap);
+      vfprintf(stderr, fmt, ap);
       fflush(stderr);
 }
 
 /****************************************************************************************/
 
+#ifdef HAVE_EXECINFO_H
 #include <execinfo.h>
 #define SHOW_STACKTRACE()                              \
       __extension__({                                  \
@@ -457,6 +475,9 @@ talloc_vlog_to_stderr(char const *fmt, va_list ap)
             write(2, "\n", 1);                         \
             fsync(2);                                  \
       })
+#else
+#define SHOW_STACKTRACE()
+#endif
 
 static void
 talloc_lib_init(void)
@@ -509,7 +530,7 @@ talloc_lib_init(void)
             random_value = (lrand48() ^ lrand48()) ^ lrand48();
 #else
             srand((unsigned)((uintptr_t)talloc_set_log_fn ^ getpid() ^ time(NULL)));
-            random_value = (rand() ^ rand()) ^ rand();
+            random_value = rand() ^ rand() ^ rand();
 #endif
       }
 
@@ -609,15 +630,14 @@ talloc_abort_unknown_value(void)
 static struct talloc_chunk *
 talloc_chunk_from_ptr(const void *ptr)
 {
-      const char          *chptr = (const char *)ptr;
-      struct talloc_chunk *chunk =
-          (struct talloc_chunk *)(chptr - ((sizeof(struct talloc_chunk) + 15) & ~15));
+      const char          *chptr = ptr;
+      struct talloc_chunk *chunk = (struct talloc_chunk *)(chptr - ((sizeof(struct talloc_chunk) + 15) & ~15));
 
       if (unlikely((chunk->flags & (TALLOC_FLAG_FREE | ~TALLOC_FLAG_MASK)) != talloc_magic))
       {
             talloc_log("Value: (raw: 0x%08X), (afterfree: 0x%08X), (mask: 0x%08X), (magic: 0x%08X)\n",
                        chunk->flags,
-                       (TALLOC_MAGIC_NON_RANDOM | TALLOC_FLAG_FREE),
+                       TALLOC_MAGIC_NON_RANDOM | TALLOC_FLAG_FREE,
                        chunk->flags & (TALLOC_FLAG_FREE | ~TALLOC_FLAG_MASK),
                        talloc_magic);
 
@@ -841,8 +861,8 @@ tc_alloc_pool(struct talloc_chunk *parent, size_t size, size_t prefix_len)
 */
 static inline void *
 __talloc_with_prefix(const void           *context,
-                     size_t                size,
-                     size_t                prefix_len,
+                     size_t const          size,
+                     size_t const          prefix_len,
                      struct talloc_chunk **tc_ret)
 {
       struct talloc_memlimit *limit  = NULL;
