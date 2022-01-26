@@ -129,4 +129,8 @@ extern uint32_t arc4random(void);
 #  include <jemalloc/jemalloc.h>
 #endif
 
+#if __has_include("valgrind/memcheck.h")
+#  define HAVE_VALGRIND_MEMCHECK_H 1
+#endif
+
 #endif /* talloc_config.h */

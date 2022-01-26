@@ -127,20 +127,28 @@ typedef void TALLOC_CTX;
 # define TALLOC_DEPRECATED 0
 #endif
 
-#ifndef PRINTF_ATTRIBUTE
-# if __has_attribute(format) || (__GNUC__ >= 3)
-/** Use gcc attribute to check printf fns.  a1 is the 1-based index of
- * the parameter containing the format, and a2 the index of the first
- * argument. Note that some gcc 2.x versions don't handle this
- * properly **/
-#  if (__GNUC__ >= 6)
-#   define PRINTF_ATTRIBUTE(a1, a2) __attribute__((__format__(__gnu_printf__, a1, a2)))
-#  else
-#   define PRINTF_ATTRIBUTE(a1, a2) __attribute__((__format__(__printf__, a1, a2)))
-#  endif
+#if defined __GNUC__ && (__GNUC__ >= 3)
+# if (__GNUC__ >= 6) && !defined __clang__
+#  define PRINTF_ATTRIBUTE(a1, a2) __attribute__((__format__(__gnu_printf__, a1, a2)))
 # else
-#  define PRINTF_ATTRIBUTE(a1, a2)
+#  define PRINTF_ATTRIBUTE(a1, a2) __attribute__((__format__(__printf__, a1, a2)))
 # endif
+# if !defined __clang__ && 0
+#  define MALLOC_ATTRIBUTE(a1, a2) __attribute__((__malloc__, __malloc__(a1, a2)))
+# else
+#  define MALLOC_ATTRIBUTE(a1, a2) __attribute__((__malloc__))
+# endif
+# define NODISCARD_ATTRIBUTE __attribute__((__warn_unused_result__))
+#else
+# define PRINTF_ATTRIBUTE(a1, a2)
+# define MALLOC_ATTRIBUTE(a1, a2)
+# define NODISCARD_ATTRIBUTE
+#endif
+
+#if __has_attribute(__alloc_size__)
+# define ALLOC_SIZE_ATTRIBUTE(...) __attribute__((__alloc_size__(__VA_ARGS__)))
+#else
+# define ALLOC_SIZE_ATTRIBUTE(...)
 #endif
 
 #ifndef _DEPRECATED_
@@ -150,65 +158,7 @@ typedef void TALLOC_CTX;
 #  define _DEPRECATED_
 # endif
 #endif
-#ifdef DOXYGEN
 
-/**
- * @brief Create a new talloc context.
- *
- * The talloc() macro is the core of the talloc library. It takes a memory
- * context and a type, and returns a pointer to a new area of memory of the
- * given type.
- *
- * The returned pointer is itself a talloc context, so you can use it as the
- * context argument to more calls to talloc if you wish.
- *
- * The returned pointer is a "child" of the supplied context. This means that if
- * you talloc_free() the context then the new child disappears as well.
- * Alternatively you can free just the child.
- *
- * @param[in]  ctx      A talloc context to create a new reference on or NULL to
- *                      create a new top level context.
- *
- * @param[in]  type     The type of memory to allocate.
- *
- * @return              A type casted talloc context or NULL on error.
- *
- * @code
- *      unsigned int *a, *b;
- *
- *      a = talloc(NULL, unsigned int);
- *      b = talloc(a, unsigned int);
- * @endcode
- *
- * @see talloc_zero
- * @see talloc_array
- * @see talloc_steal
- * @see talloc_free
- */
-_PUBLIC_ void *talloc(const void *ctx, #type);
-#else
-# define talloc(ctx, type) (type *)talloc_named_const(ctx, sizeof(type), #type)
-_PUBLIC_ void *_talloc(const void *context, size_t size);
-#endif
-
-/**
- * @brief Create a new top level talloc context.
- *
- * This function creates a zero length named talloc context as a top level
- * context. It is equivalent to:
- *
- * @code
- *      talloc_named(NULL, 0, fmt, ...);
- * @endcode
- * @param[in]  fmt      Format string for the name.
- *
- * @param[in]  ...      Additional printf-style arguments.
- *
- * @return              The allocated memory chunk, NULL on error.
- *
- * @see talloc_named()
- */
-_PUBLIC_ void *talloc_init(const char *fmt, ...) PRINTF_ATTRIBUTE(1, 2);
 
 #ifdef DOXYGEN
 /**
@@ -278,6 +228,72 @@ _PUBLIC_ int talloc_free(void *ptr);
 # define talloc_free(ctx) _talloc_free(ctx, __location__)
 _PUBLIC_ int   _talloc_free(void *ptr, const char *location);
 #endif
+
+
+#ifdef DOXYGEN
+/**
+ * @brief Create a new talloc context.
+ *
+ * The talloc() macro is the core of the talloc library. It takes a memory
+ * context and a type, and returns a pointer to a new area of memory of the
+ * given type.
+ *
+ * The returned pointer is itself a talloc context, so you can use it as the
+ * context argument to more calls to talloc if you wish.
+ *
+ * The returned pointer is a "child" of the supplied context. This means that if
+ * you talloc_free() the context then the new child disappears as well.
+ * Alternatively you can free just the child.
+ *
+ * @param[in]  ctx      A talloc context to create a new reference on or NULL to
+ *                      create a new top level context.
+ *
+ * @param[in]  type     The type of memory to allocate.
+ *
+ * @return              A type casted talloc context or NULL on error.
+ *
+ * @code
+ *      unsigned int *a, *b;
+ *
+ *      a = talloc(NULL, unsigned int);
+ *      b = talloc(a, unsigned int);
+ * @endcode
+ *
+ * @see talloc_zero
+ * @see talloc_array
+ * @see talloc_steal
+ * @see talloc_free
+ */
+_PUBLIC_ void *talloc(const void *ctx, #type);
+#else
+# define talloc(ctx, type) (type *)talloc_named_const(ctx, sizeof(type), #type)
+
+_PUBLIC_ void *_talloc(const void *context, size_t size)
+        MALLOC_ATTRIBUTE(_talloc_free, 1)
+        ALLOC_SIZE_ATTRIBUTE(2)
+        NODISCARD_ATTRIBUTE;
+#endif
+
+
+/**
+ * @brief Create a new top level talloc context.
+ *
+ * This function creates a zero length named talloc context as a top level
+ * context. It is equivalent to:
+ *
+ * @code
+ *      talloc_named(NULL, 0, fmt, ...);
+ * @endcode
+ * @param[in]  fmt      Format string for the name.
+ *
+ * @param[in]  ...      Additional printf-style arguments.
+ *
+ * @return              The allocated memory chunk, NULL on error.
+ *
+ * @see talloc_named()
+ */
+_PUBLIC_ void *talloc_init(const char *fmt, ...) PRINTF_ATTRIBUTE(1, 2);
+
 
 /**
  * @brief Free a talloc chunk's children.
@@ -402,8 +418,7 @@ _PUBLIC_ void *talloc_steal(const void *new_ctx, const void *ptr);
    stupidity in gcc 4.1.x */
 #  define talloc_steal(ctx, ptr)                                                        \
         __extension__({                                                                 \
-                _TALLOC_TYPEOF(ptr)                                                     \
-                __talloc_steal_ret =                                                    \
+                _TALLOC_TYPEOF(ptr) __talloc_steal_ret =                                \
                     (_TALLOC_TYPEOF(ptr))_talloc_steal_loc((ctx), (ptr), __location__); \
                 __talloc_steal_ret;                                                     \
         })
@@ -539,7 +554,11 @@ _PUBLIC_ void *talloc_named(const void *context, size_t size, const char *fmt, .
  *
  * @return             The allocated memory chunk, NULL on error.
  */
-_PUBLIC_ void *talloc_named_const(const void *context, size_t size, const char *name);
+
+_PUBLIC_ void *talloc_named_const(const void *context, size_t size, const char *name)
+        MALLOC_ATTRIBUTE(_talloc_free, 1) 
+        ALLOC_SIZE_ATTRIBUTE(2)
+        NODISCARD_ATTRIBUTE;
 
 #ifdef DOXYGEN
 /**
@@ -656,7 +675,10 @@ _PUBLIC_ void *talloc_zero_size(const void *ctx, size_t size);
 #else
 # define talloc_zero(ctx, type) (type *)_talloc_zero(ctx, sizeof(type), #type)
 # define talloc_zero_size(ctx, size) _talloc_zero(ctx, size, __location__)
-_PUBLIC_ void *_talloc_zero(const void *ctx, size_t size, const char *name);
+_PUBLIC_ void *_talloc_zero(const void *ctx, size_t size, const char *name)
+        MALLOC_ATTRIBUTE(_talloc_free, 1) 
+        ALLOC_SIZE_ATTRIBUTE(2)
+        NODISCARD_ATTRIBUTE;
 #endif
 
 
@@ -968,9 +990,9 @@ _PUBLIC_ void *_talloc_pooled_object(const void *ctx,
  */
 #define TALLOC_FREE(ctx)                  \
         do {                              \
-                if (ctx != NULL) {        \
+                if ((ctx) != NULL) {      \
                         talloc_free(ctx); \
-                        ctx = NULL;       \
+                        (ctx) = NULL;     \
                 }                         \
         } while (0)
 
@@ -1223,7 +1245,10 @@ _PUBLIC_ void *talloc_reparent(const void *old_parent, const void *new_parent, c
 _PUBLIC_ void *talloc_array(const void *ctx, #type, unsigned count);
 #else
 # define talloc_array(ctx, type, count) (type *)_talloc_array(ctx, sizeof(type), count, #type)
-_PUBLIC_ void *_talloc_array(const void *ctx, size_t el_size, unsigned count, const char *name);
+_PUBLIC_ void *_talloc_array(const void *ctx, size_t el_size, unsigned count, const char *name)
+        MALLOC_ATTRIBUTE(_talloc_free, 1) 
+        ALLOC_SIZE_ATTRIBUTE(2, 3)
+        NODISCARD_ATTRIBUTE;
 #endif
 
 #ifdef DOXYGEN
@@ -1307,7 +1332,10 @@ void *talloc_zero_array(const void *ctx, #type, unsigned count);
 #else
 # define talloc_zero_array(ctx, type, count) \
         (type *)_talloc_zero_array(ctx, sizeof(type), count, #type)
-_PUBLIC_ void *_talloc_zero_array(const void *ctx, size_t el_size, unsigned count, const char *name);
+_PUBLIC_ void *_talloc_zero_array(const void *ctx, size_t el_size, unsigned count, const char *name)
+        MALLOC_ATTRIBUTE(_talloc_free, 1)
+        ALLOC_SIZE_ATTRIBUTE(2, 3)
+        NODISCARD_ATTRIBUTE;
 #endif
 
 #ifdef DOXYGEN
@@ -1346,7 +1374,9 @@ _PUBLIC_ void *talloc_realloc(const void *ctx, void *ptr, #type, size_t count);
 # define talloc_realloc(ctx, p, type, count) \
         (type *)_talloc_realloc_array(ctx, p, sizeof(type), count, #type)
 _PUBLIC_ void *
-_talloc_realloc_array(const void *ctx, void *ptr, size_t el_size, unsigned count, const char *name);
+_talloc_realloc_array(const void *ctx, void *ptr, size_t el_size, unsigned count, const char *name)
+        ALLOC_SIZE_ATTRIBUTE(3, 4)
+        NODISCARD_ATTRIBUTE;
 #endif
 
 #ifdef DOXYGEN
@@ -1367,7 +1397,9 @@ _talloc_realloc_array(const void *ctx, void *ptr, size_t el_size, unsigned count
 void *talloc_realloc_size(const void *ctx, void *ptr, size_t size);
 #else
 # define talloc_realloc_size(ctx, ptr, size) _talloc_realloc(ctx, ptr, size, __location__)
-_PUBLIC_ void *_talloc_realloc(const void *context, void *ptr, size_t size, const char *name);
+_PUBLIC_ void *_talloc_realloc(const void *context, void *ptr, size_t size, const char *name)
+        ALLOC_SIZE_ATTRIBUTE(3)
+        NODISCARD_ATTRIBUTE;
 #endif
 
 /**
@@ -1387,7 +1419,9 @@ _PUBLIC_ void *_talloc_realloc(const void *context, void *ptr, size_t size, cons
  *
  * @return              The new chunk, NULL on error.
  */
-_PUBLIC_ void *talloc_realloc_fn(const void *context, void *ptr, size_t size);
+_PUBLIC_ void *talloc_realloc_fn(const void *context, void *ptr, size_t size)
+        ALLOC_SIZE_ATTRIBUTE(3)
+        NODISCARD_ATTRIBUTE;
 
 /* @} ******************************************************************/
 
@@ -1422,7 +1456,9 @@ _PUBLIC_ void *talloc_realloc_fn(const void *context, void *ptr, size_t size);
  *
  * @return              The duplicated string, NULL on error.
  */
-_PUBLIC_ char *talloc_strdup(const void *t, const char *p);
+_PUBLIC_ char *talloc_strdup(const void *t, const char *p)
+        MALLOC_ATTRIBUTE(_talloc_free, 1)
+        NODISCARD_ATTRIBUTE;
 
 /**
  * @brief Append a string to given string.
@@ -2004,6 +2040,10 @@ _PUBLIC_ int talloc_set_memlimit(const void *ctx, size_t max_size) _DEPRECATED_;
 #ifndef TALLOC_MAX_DEPTH
 # define TALLOC_MAX_DEPTH 10000
 #endif
+#undef PRINTF_ATTRIBUTE
+#undef MALLOC_ATTRIBUTE
+#undef ALLOC_SIZE_ATTRIBUTE
+#undef NODISCARD_ATTRIBUTE
 
 #ifdef __cplusplus
 } /* end of extern "C" */
