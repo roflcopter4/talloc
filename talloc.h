@@ -37,8 +37,8 @@ extern "C" {
 #ifndef __has_attribute
 # define __has_attribute(x) 0
 #endif
-#ifndef __GNUC__
-# define __attribute__(x)
+#if !(defined __GNUC__ || defined __clang__) && !defined __attribute__
+# define __attribute__(a)
 #endif
 
 #ifndef _PUBLIC_
@@ -556,7 +556,7 @@ _PUBLIC_ void *talloc_named(const void *context, size_t size, const char *fmt, .
  */
 
 _PUBLIC_ void *talloc_named_const(const void *context, size_t size, const char *name)
-        MALLOC_ATTRIBUTE(_talloc_free, 1) 
+        MALLOC_ATTRIBUTE(_talloc_free, 1)
         ALLOC_SIZE_ATTRIBUTE(2)
         NODISCARD_ATTRIBUTE;
 
@@ -676,7 +676,7 @@ _PUBLIC_ void *talloc_zero_size(const void *ctx, size_t size);
 # define talloc_zero(ctx, type) (type *)_talloc_zero(ctx, sizeof(type), #type)
 # define talloc_zero_size(ctx, size) _talloc_zero(ctx, size, __location__)
 _PUBLIC_ void *_talloc_zero(const void *ctx, size_t size, const char *name)
-        MALLOC_ATTRIBUTE(_talloc_free, 1) 
+        MALLOC_ATTRIBUTE(_talloc_free, 1)
         ALLOC_SIZE_ATTRIBUTE(2)
         NODISCARD_ATTRIBUTE;
 #endif
@@ -1246,7 +1246,7 @@ _PUBLIC_ void *talloc_array(const void *ctx, #type, unsigned count);
 #else
 # define talloc_array(ctx, type, count) (type *)_talloc_array(ctx, sizeof(type), count, #type)
 _PUBLIC_ void *_talloc_array(const void *ctx, size_t el_size, unsigned count, const char *name)
-        MALLOC_ATTRIBUTE(_talloc_free, 1) 
+        MALLOC_ATTRIBUTE(_talloc_free, 1)
         ALLOC_SIZE_ATTRIBUTE(2, 3)
         NODISCARD_ATTRIBUTE;
 #endif

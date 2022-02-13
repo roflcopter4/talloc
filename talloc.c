@@ -566,7 +566,15 @@ talloc_lib_init(void)
 
 static pthread_once_t emergency_once = PTHREAD_ONCE_INIT;
 extern void talloc_emergency_library_init(void);
+
+#ifndef __GNUC__
+INITIALIZER_HACK(MSVC_Initializer)
+{
+      talloc_emergency_library_init();
+}
+#else
 __attribute__((__constructor__(101)))
+#endif
 void talloc_emergency_library_init(void)
 {
       pthread_once(&emergency_once, talloc_lib_init);
